@@ -153,10 +153,14 @@ const json = (status, body) => ({
 const ok = (extra) => json(200, Object.assign({ ok: true }, extra));
 const fail = (error, status, code) => json(status || 400, { ok: false, error, code });
 
-/* ---------- Handlers da API ---------- */
+/* ---------- Níveis de Acesso ---------- */
 const DUP_NOME = 'Já existe um usuário com esse nome. O nome é usado no login e precisa ser único.';
 const nameTaken = (list, nome, exceptId) => list.some((u) => normNome(u.nome) === normNome(nome) && lc(u.id) !== lc(exceptId));
-const isPrivileged = (u) => !!u && (u.role === 'admin' || !!u.instrutor || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor');
+
+const isCEO = (u) => !!u && (u.role === 'admin' || String(u.id).toUpperCase() === 'CEO');
+const isInstrutor = (u) => !!u && !isCEO(u) && (!!u.instrutor || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor');
+const isPrivileged = (u) => isCEO(u) || isInstrutor(u);
+const isMembro = (u) => !isPrivileged(u);
 
 const handlers = {
   async login({ body }) {
@@ -189,16 +193,19 @@ const handlers = {
   },
 
   async bootstrap({ me }) {
-    const admin = isPrivileged(me);
+    const privileged = isPrivileged(me);
     const [cargos, courses, certs] = await Promise.all([listCargos(), listCourses(), listCerts()]);
     const out = {
       user: pub(me), cargos, courses,
       myCerts: certs.filter((x) => lc(x.userId) === lc(me.id)),
       users: [], certs: [], notes: [], punicoes: []
     };
-    if (admin) {
+    if (privileged) {
       const [users, notes, puns] = await Promise.all([listUsers(), listRecs('NOTE'), listRecs('PUN')]);
-      out.users = users.map(pub); out.certs = certs; out.notes = notes; out.punicoes = puns;
+      out.users = users.map(pub);
+      out.certs = certs;
+      out.notes = notes;
+      out.punicoes = puns;
     }
     return ok(out);
   },
@@ -418,28 +425,28 @@ const handlers = {
 
 /* ---------- Roteamento das 22 rotas ---------- */
 const ROUTES = [
-  { method: 'POST',   re: /^\/login$/,                  role: 'none',  fn: handlers.login },
-  { method: 'GET',    re: /^\/me$/,                     role: 'user',  fn: handlers.me },
-  { method: 'GET',    re: /^\/bootstrap$/,              role: 'user',  fn: handlers.bootstrap },
-  { method: 'POST',   re: /^\/users$/,                  role: 'admin', fn: handlers.userCreate },
-  { method: 'PUT',    re: /^\/users\/(?<id>[^/]+)$/,    role: 'admin', fn: handlers.userUpdate },
-  { method: 'POST',   re: /^\/users\/(?<id>[^/]+)\/password$/, role: 'admin', fn: handlers.userPassword },
-  { method: 'DELETE', re: /^\/users\/(?<id>[^/]+)$/,    role: 'admin', fn: handlers.userDelete },
-  { method: 'POST',   re: /^\/cargos$/,                 role: 'admin', fn: handlers.cargoCreate },
-  { method: 'DELETE', re: /^\/cargos\/(?<nome>[^/]+)$/, role: 'admin', fn: handlers.cargoDelete },
-  { method: 'POST',   re: /^\/courses$/,                role: 'admin', fn: handlers.courseCreate },
-  { method: 'PUT',    re: /^\/courses\/(?<id>[^/]+)$/,  role: 'admin', fn: handlers.courseUpdate },
-  { method: 'DELETE', re: /^\/courses\/(?<id>[^/]+)$/,  role: 'admin', fn: handlers.courseDelete },
-  { method: 'POST',   re: /^\/certs$/,                  role: 'admin', fn: handlers.certCreate },
-  { method: 'DELETE', re: /^\/certs\/(?<id>[^/]+)$/,    role: 'admin', fn: handlers.certDelete },
-  { method: 'POST',   re: /^\/notes$/,                  role: 'admin', fn: handlers.noteCreate },
-  { method: 'PUT',    re: /^\/notes\/(?<id>[^/]+)$/,    role: 'admin', fn: handlers.noteUpdate },
-  { method: 'DELETE', re: /^\/notes\/(?<id>[^/]+)$/,    role: 'admin', fn: handlers.noteDelete },
-  { method: 'POST',   re: /^\/punicoes$/,               role: 'admin', fn: handlers.punCreate },
-  { method: 'PUT',    re: /^\/punicoes\/(?<id>[^/]+)$/, role: 'admin', fn: handlers.punUpdate },
-  { method: 'DELETE', re: /^\/punicoes\/(?<id>[^/]+)$/, role: 'admin', fn: handlers.punDelete },
-  { method: 'GET',    re: /^\/backup$/,                 role: 'admin', fn: handlers.backupExport },
-  { method: 'POST',   re: /^\/backup$/,                 role: 'admin', fn: handlers.backupImport }
+  { method: 'POST',   re: /^\/login$/,                  role: 'none',      fn: handlers.login },
+  { method: 'GET',    re: /^\/me$/,                     role: 'user',      fn: handlers.me },
+  { method: 'GET',    re: /^\/bootstrap$/,              role: 'user',      fn: handlers.bootstrap },
+  { method: 'POST',   re: /^\/users$/,                  role: 'ceo',       fn: handlers.userCreate },
+  { method: 'PUT',    re: /^\/users\/(?<id>[^/]+)$/,    role: 'ceo',       fn: handlers.userUpdate },
+  { method: 'POST',   re: /^\/users\/(?<id>[^/]+)\/password$/, role: 'ceo', fn: handlers.userPassword },
+  { method: 'DELETE', re: /^\/users\/(?<id>[^/]+)$/,    role: 'ceo',       fn: handlers.userDelete },
+  { method: 'POST',   re: /^\/cargos$/,                 role: 'ceo',       fn: handlers.cargoCreate },
+  { method: 'DELETE', re: /^\/cargos\/(?<nome>[^/]+)$/, role: 'ceo',       fn: handlers.cargoDelete },
+  { method: 'POST',   re: /^\/courses$/,                role: 'instrutor', fn: handlers.courseCreate },
+  { method: 'PUT',    re: /^\/courses\/(?<id>[^/]+)$/,  role: 'instrutor', fn: handlers.courseUpdate },
+  { method: 'DELETE', re: /^\/courses\/(?<id>[^/]+)$/,  role: 'instrutor', fn: handlers.courseDelete },
+  { method: 'POST',   re: /^\/certs$/,                  role: 'instrutor', fn: handlers.certCreate },
+  { method: 'DELETE', re: /^\/certs\/(?<id>[^/]+)$/,    role: 'instrutor', fn: handlers.certDelete },
+  { method: 'POST',   re: /^\/notes$/,                  role: 'instrutor', fn: handlers.noteCreate },
+  { method: 'PUT',    re: /^\/notes\/(?<id>[^/]+)$/,    role: 'instrutor', fn: handlers.noteUpdate },
+  { method: 'DELETE', re: /^\/notes\/(?<id>[^/]+)$/,    role: 'instrutor', fn: handlers.noteDelete },
+  { method: 'POST',   re: /^\/punicoes$/,               role: 'instrutor', fn: handlers.punCreate },
+  { method: 'PUT',    re: /^\/punicoes\/(?<id>[^/]+)$/, role: 'instrutor', fn: handlers.punUpdate },
+  { method: 'DELETE', re: /^\/punicoes\/(?<id>[^/]+)$/, role: 'instrutor', fn: handlers.punDelete },
+  { method: 'GET',    re: /^\/backup$/,                 role: 'ceo',       fn: handlers.backupExport },
+  { method: 'POST',   re: /^\/backup$/,                 role: 'ceo',       fn: handlers.backupImport }
 ];
 
 async function authenticate(req) {
@@ -494,8 +501,13 @@ http.createServer(async (req, res) => {
             res.writeHead(out.statusCode, out.headers);
             return res.end(out.body);
           }
-          if (match.role === 'admin' && !isPrivileged(me)) {
-            const out = fail('Apenas administradores e instrutores podem fazer isso.', 403, 'forbidden');
+          if (match.role === 'ceo' && !isCEO(me)) {
+            const out = fail('Apenas o CEO tem acesso a esta funcionalidade (usuários, cargos e backup).', 403, 'forbidden');
+            res.writeHead(out.statusCode, out.headers);
+            return res.end(out.body);
+          }
+          if (match.role === 'instrutor' && !isPrivileged(me)) {
+            const out = fail('Acesso permitido apenas para Instrutores e CEO.', 403, 'forbidden');
             res.writeHead(out.statusCode, out.headers);
             return res.end(out.body);
           }
@@ -526,25 +538,75 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  // Intercepta e serve auth.js com compatibilidade para instrutores
+  // Serve auth.js com os níveis de acesso (CEO, Instrutor, Membro)
   if (url.pathname === '/auth.js') {
-    let code = fs.existsSync(path.join(SITE, 'auth.js')) ? fs.readFileSync(path.join(SITE, 'auth.js'), 'utf8') : '';
-    if (!code.includes('isInstrutor')) {
+    const authPath = path.join(SITE, 'auth.js');
+    let code = fs.existsSync(authPath) ? fs.readFileSync(authPath, 'utf8') : '';
+    if (!code.includes('isCEO')) {
       code = code.replace(
         "function isAdmin() { return !!state.user && state.user.role === 'admin'; }",
-        "function isInstrutor(u) { u = u || state.user; return !!u && (u.instrutor === true || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor'); }\n  function isAdmin() { var u = state.user; return !!u && (u.role === 'admin' || isInstrutor(u)); }"
+        "function isCEO() { var u = state.user; return !!u && (u.role === 'admin' || String(u.id).toUpperCase() === 'CEO'); }\n  function isInstrutor(u) { u = u || state.user; return !!u && !isCEO() && (u.instrutor === true || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor'); }\n  function isPrivileged() { return isCEO() || isInstrutor(); }\n  function isMembro() { var u = state.user; return !!u && !isPrivileged(); }\n  function isAdmin() { return isPrivileged(); }"
       )
-      .replace("if (role === 'admin' && u.role !== 'admin')", "if (role === 'admin' && !isAdmin())")
-      .replace("if (u.role === 'admin') el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));", "if (isAdmin()) el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));")
-      .replace("if (!el || !u || u.role !== 'admin') return;", "if (!el || !u || !isAdmin()) return;")
+      .replace("if (role === 'admin' && u.role !== 'admin')", "if (role === 'admin' && !isPrivileged())")
+      .replace("if (u.role === 'admin') el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));", "if (isPrivileged()) el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));")
+      .replace("if (!el || !u || u.role !== 'admin') return;", "if (!el || !u || !isPrivileged()) return;")
       .replace("var c = (u.role === 'admin' ? state.certs : state.myCerts)", "var c = (isAdmin() ? state.certs : state.myCerts)")
-      .replace("var owner = u.role === 'admin' ?", "var owner = isAdmin() ?");
+      .replace("var owner = u.role === 'admin' ?", "var owner = isAdmin() ?")
+      .replace(
+        "[['admin', 'Governança', 'admin.html'], ['dashboard', 'Dashboard', 'dashboard.html'], ['anotacoes', 'Anotações', 'anotacoes.html'], ['punicoes', 'Punições', 'punicoes.html']]",
+        "[[isCEO() ? ['admin', 'Governança', 'admin.html'] : ['admin', 'Cursos & Certificados', 'admin.html']], ['dashboard', 'Dashboard', 'dashboard.html'], ['anotacoes', 'Anotações', 'anotacoes.html'], ['punicoes', 'Punições', 'punicoes.html']].flat()"
+      )
+      .replace("isAdmin: isAdmin,", "isCEO: isCEO, isInstrutor: isInstrutor, isPrivileged: isPrivileged, isMembro: isMembro, isAdmin: isAdmin,");
     }
     res.writeHead(200, {
       'Content-Type': 'text/javascript; charset=utf-8',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
     });
     return res.end(code);
+  }
+
+  // Serve admin.html ajustando interface para CEO vs Instrutor
+  if (url.pathname === '/admin.html') {
+    const adminPath = path.join(SITE, 'admin.html');
+    let html = fs.existsSync(adminPath) ? fs.readFileSync(adminPath, 'utf8') : '';
+    if (!html.includes('isCEO')) {
+      const patch = `<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var isCEO = Auth.isCEO && Auth.isCEO();
+  if (!isCEO) {
+    var h1 = document.querySelector('h1');
+    if (h1) h1.textContent = 'CURSOS & CERTIFICADOS';
+    var lead = document.querySelector('.lead');
+    if (lead) lead.textContent = 'Área do Instrutor: gerenciamento de cursos e emissão de certificados.';
+    var bU = document.getElementById('btnUser'); if (bU) bU.style.display = 'none';
+    var bC = document.getElementById('btnCargo'); if (bC) bC.style.display = 'none';
+    var bE = document.getElementById('btnExport'); if (bE) bE.style.display = 'none';
+    var bI = document.getElementById('btnImport'); if (bI) bI.style.display = 'none';
+    var sU = document.getElementById('h-users'); if (sU && sU.closest('section')) sU.closest('section').style.display = 'none';
+    var sC = document.getElementById('h-cargos'); if (sC && sC.closest('section')) sC.closest('section').style.display = 'none';
+  }
+});
+</script>`;
+      html = html.replace('</body>', patch + '\n</body>');
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    });
+    return res.end(html);
+  }
+
+  // Serve curso.html com o botão de editar para Instrutores
+  if (url.pathname === '/curso.html') {
+    const cursoPath = path.join(SITE, 'curso.html');
+    let html = fs.existsSync(cursoPath) ? fs.readFileSync(cursoPath, 'utf8') : '';
+    html = html.replace("Auth.user.role === 'admin'", "(Auth.isPrivileged && Auth.isPrivileged())");
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    });
+    return res.end(html);
   }
 
   // Arquivos estáticos
