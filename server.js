@@ -156,6 +156,7 @@ const fail = (error, status, code) => json(status || 400, { ok: false, error, co
 /* ---------- Handlers da API ---------- */
 const DUP_NOME = 'Já existe um usuário com esse nome. O nome é usado no login e precisa ser único.';
 const nameTaken = (list, nome, exceptId) => list.some((u) => normNome(u.nome) === normNome(nome) && lc(u.id) !== lc(exceptId));
+const isPrivileged = (u) => !!u && (u.role === 'admin' || !!u.instrutor || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor');
 
 const handlers = {
   async login({ body }) {
@@ -188,7 +189,7 @@ const handlers = {
   },
 
   async bootstrap({ me }) {
-    const admin = me.role === 'admin';
+    const admin = isPrivileged(me);
     const [cargos, courses, certs] = await Promise.all([listCargos(), listCourses(), listCerts()]);
     const out = {
       user: pub(me), cargos, courses,
@@ -220,7 +221,7 @@ const handlers = {
   async userUpdate({ params, body: d }) {
     const u = await db.get('USER', lc(params.id));
     if (!u) return fail('Usuário não encontrado.', 404);
-    if (u.role !== 'admin') {
+    if (u.role !== 'admin' && !u.fixo) {
       const e = vNome(d.nome); if (e) return fail(e);
       if (nameTaken(await listUsers(), d.nome, u.id)) return fail(DUP_NOME);
       if (!(await listCargos()).includes(d.cargo)) return fail('Selecione um cargo válido.');
@@ -245,7 +246,7 @@ const handlers = {
   async userDelete({ me, params }) {
     const u = await db.get('USER', lc(params.id));
     if (!u) return fail('Usuário não encontrado.', 404);
-    if (u.role === 'admin' || lc(u.id) === lc(me.id)) return fail('O administrador não pode ser excluído.');
+    if (u.role === 'admin' || lc(u.id) === lc(me.id) || u.fixo) return fail('O administrador principal (CEO) não pode ser excluído.');
     for (const ct of await db.query('CERT')) if (lc(ct.userId) === lc(u.id)) await db.del('CERT', ct.sk);
     await db.del('USER', u.sk);
     return ok();
@@ -493,8 +494,8 @@ http.createServer(async (req, res) => {
             res.writeHead(out.statusCode, out.headers);
             return res.end(out.body);
           }
-          if (match.role === 'admin' && me.role !== 'admin') {
-            const out = fail('Apenas o administrador pode fazer isso.', 403, 'forbidden');
+          if (match.role === 'admin' && !isPrivileged(me)) {
+            const out = fail('Apenas administradores e instrutores podem fazer isso.', 403, 'forbidden');
             res.writeHead(out.statusCode, out.headers);
             return res.end(out.body);
           }
@@ -525,6 +526,28 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  // Intercepta e serve auth.js com compatibilidade para instrutores
+  if (url.pathname === '/auth.js') {
+    let code = fs.existsSync(path.join(SITE, 'auth.js')) ? fs.readFileSync(path.join(SITE, 'auth.js'), 'utf8') : '';
+    if (!code.includes('isInstrutor')) {
+      code = code.replace(
+        "function isAdmin() { return !!state.user && state.user.role === 'admin'; }",
+        "function isInstrutor(u) { u = u || state.user; return !!u && (u.instrutor === true || u.cargo === 'Instrutor' || String(u.cargo || '').toLowerCase() === 'instrutor'); }\n  function isAdmin() { var u = state.user; return !!u && (u.role === 'admin' || isInstrutor(u)); }"
+      )
+      .replace("if (role === 'admin' && u.role !== 'admin')", "if (role === 'admin' && !isAdmin())")
+      .replace("if (u.role === 'admin') el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));", "if (isAdmin()) el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));")
+      .replace("if (!el || !u || u.role !== 'admin') return;", "if (!el || !u || !isAdmin()) return;")
+      .replace("var c = (u.role === 'admin' ? state.certs : state.myCerts)", "var c = (isAdmin() ? state.certs : state.myCerts)")
+      .replace("var owner = u.role === 'admin' ?", "var owner = isAdmin() ?");
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/javascript; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    });
+    return res.end(code);
+  }
+
+  // Arquivos estáticos
   let name = url.pathname === '/' ? 'login.html' : decodeURIComponent(url.pathname.slice(1));
   let file = path.join(SITE, name);
 
