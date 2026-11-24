@@ -572,7 +572,7 @@ http.createServer(async (req, res) => {
       .replace("if (u.role === 'admin') el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));", "if (isPrivileged()) el.appendChild(h('a', { href: 'admin.html', 'class': 'navlink', text: 'Painel' }));")
       // 4. mountTabs: exige isPrivileged
       .replace("if (!el || !u || u.role !== 'admin') return;", "if (!el || !u || !isPrivileged()) return;")
-      // 5. listCerts usa isAdmin() 
+      // 5. listCerts usa isAdmin()
       .replace("var c = (u.role === 'admin' ? state.certs : state.myCerts)", "var c = (isAdmin() ? state.certs : state.myCerts)")
       .replace("var owner = u.role === 'admin' ?", "var owner = isAdmin() ?")
       // 6. Tabs: CEO vê "Governança", Instrutor vê "Cursos & Certificados"
@@ -580,8 +580,8 @@ http.createServer(async (req, res) => {
         "[['admin', 'Governança', 'admin.html'], ['dashboard', 'Dashboard', 'dashboard.html'], ['anotacoes', 'Anotações', 'anotacoes.html'], ['punicoes', 'Punições', 'punicoes.html']]",
         "[[isCEO() ? ['admin', 'Governança', 'admin.html'] : ['admin', 'Cursos & Certificados', 'admin.html']], ['dashboard', 'Dashboard', 'dashboard.html'], ['anotacoes', 'Anotações', 'anotacoes.html'], ['punicoes', 'Punições', 'punicoes.html']].flat()"
       )
-      // 7. Exporta isCEO/isInstrutor/isPrivileged/isMembro no objeto api
-      //    IMPORTANTE: o api original usa "user: null, ready: null," como primeira linha - adicionamos as funções após
+      // 7. CORREÇÃO CRÍTICA: Exporta isCEO/isInstrutor/isPrivileged/isMembro no objeto api
+      //    Usa "user: null, ready: null," como âncora (existe no auth.js original)
       .replace(
         "user: null, ready: null,",
         "user: null, ready: null,\n    isCEO: isCEO, isInstrutor: isInstrutor, isPrivileged: isPrivileged, isMembro: isMembro, isAdmin: isAdmin,"
