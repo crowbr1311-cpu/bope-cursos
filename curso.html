@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Curso - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="user"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal"><a href="index.html">Início</a><a href="index.html#cursos">Cursos</a><a href="index.html#contato">Contato</a></nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main class="page" id="main"></main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var h = Auth.h, main = document.getElementById('main');
+  var c = Auth.getCourse(new URLSearchParams(location.search).get('c') || '');
+  var back = h('a', { 'class': 'btn', href: 'index.html#cursos', text: '◀ Voltar aos cursos' });
+
+  if (!c) {
+    main.appendChild(h('h1', { text: 'Curso não encontrado' }));
+    main.appendChild(h('p', { text: 'Este curso não existe ou foi removido.' }));
+    main.appendChild(back);
+    return;
+  }
+  document.title = c.titulo + ' - B.O.P.E';
+  main.appendChild(h('div', { 'class': 'big-ico', 'aria-hidden': 'true', text: c.icone }));
+  main.appendChild(h('h1', { text: c.titulo }));
+  if (c.descricao) main.appendChild(h('p', { text: c.descricao }));
+
+  var body = h('div', { 'class': 'content' });
+  if (c.conteudo) {
+    c.conteudo.split(/\n{2,}/).forEach(function (par) { body.appendChild(h('p', { text: par })); });
+  } else {
+    body.appendChild(h('p', { 'class': 'muted', text: 'O conteúdo deste curso ainda não foi publicado.' }));
+  }
+  main.appendChild(body);
+
+  var acts = h('div', { 'class': 'actions center-actions' });
+  if (c.link) acts.appendChild(h('a', { 'class': 'btn solid', href: c.link, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir material do curso' }));
+  if (Auth.user.role === 'admin') acts.appendChild(h('a', { 'class': 'btn', href: 'admin.html?editar=' + encodeURIComponent(c.id), text: '✏️ Editar curso' }));
+  acts.appendChild(back);
+  main.appendChild(acts);
+});
+</script>
+</body>
+</html>

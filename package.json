@@ -1,0 +1,13 @@
+{
+  "name": "bope-cursos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "B.O.P.E Cursos - Plataforma completa com site e backend integrado",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

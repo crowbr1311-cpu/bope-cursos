@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Certificado - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="user"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal"><a href="index.html">Início</a><a href="index.html#cursos">Cursos</a></nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main id="main"></main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var h = Auth.h, main = document.getElementById('main');
+  var id = new URLSearchParams(location.search).get('c') || '';
+  var r = Auth.getCert(id);
+  if (!r || !r.user) {
+    main.appendChild(h('div', { 'class': 'page' }, h('h1', { text: 'Certificado não encontrado' }), h('p', { text: 'O certificado não existe ou você não tem permissão para vê-lo.' }), h('a', { 'class': 'btn', href: 'index.html', text: '◀ Voltar' })));
+    return;
+  }
+  document.title = 'Certificado - ' + r.cert.curso + ' - B.O.P.E';
+  var print = h('button', { type: 'button', 'class': 'btn solid', text: 'Imprimir / Salvar PDF' });
+  print.addEventListener('click', function () { window.print(); });
+  main.appendChild(h('article', { 'class': 'cert', 'aria-label': 'Certificado de conclusão' },
+    h('div', { 'class': 'org', text: 'B.O.P.E' }),
+    h('h1', { text: 'CERTIFICADO' }),
+    h('p', { 'class': 'meta', text: 'Certificamos que' }),
+    h('p', { 'class': 'who', text: r.user.nome }),
+    h('p', { 'class': 'meta', text: 'ID ' + r.user.id + ' · ' + r.user.cargo }),
+    h('p', { 'class': 'meta', text: 'concluiu com êxito o curso' }),
+    h('p', { 'class': 'course', text: r.cert.curso }),
+    h('p', { 'class': 'meta', text: 'Data de conclusão: ' + Auth.fmtDate(r.cert.data) }),
+    h('div', { 'class': 'sign', text: r.cert.instrutorNome || r.cert.emitidoPor || 'Administração B.O.P.E' }),
+    h('p', { 'class': 'meta', text: r.cert.instrutorNome ? 'Instrutor responsável' : '' }),
+    h('p', { 'class': 'meta', text: 'Administração B.O.P.E' })));
+  main.appendChild(h('div', { 'class': 'cert-actions' }, print, h('a', { 'class': 'btn', href: Auth.user.role === 'admin' ? 'admin.html' : 'index.html', text: '◀ Voltar' })));
+});
+</script>
+</body>
+</html>

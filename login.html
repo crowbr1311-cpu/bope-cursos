@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Entrar - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js"></script>
+</head>
+<body>
+<header><a class="logo" href="login.html">B.O.P.E <span>Cursos</span></a></header>
+
+<main class="center">
+  <form class="box" id="loginForm" novalidate>
+    <h1>ACESSO RESTRITO</h1>
+    <p class="lead">Entre com seu nome e senha para acessar os cursos.</p>
+    <div class="field"><label for="lNome">Nome</label><input type="text" id="lNome" autocomplete="username" maxlength="80"></div>
+    <div class="field"><label for="lSenha">Senha</label><input type="password" id="lSenha" autocomplete="current-password" maxlength="128"></div>
+    <p class="warn" id="httpWarn" hidden>⚠ Esta página está em conexão <strong>não segura (HTTP)</strong>. Peça ao responsável pelo site para ativar o HTTPS antes de usar senhas reais.</p>
+    <p class="err" id="lErr" role="alert"></p>
+    <div class="actions"><button class="btn solid" type="submit">⚡ ENTRAR ⚡</button></div>
+  </form>
+</main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<script>
+Auth.ready.then(function () {
+  /* Link do Discord: troque pelo convite do servidor ou pelo canal de tickets, se tiver. */
+  var DISCORD_URL = 'https://discord.com/channels/1451350389583773736';
+
+  var $ = function (id) { return document.getElementById(id); };
+  function dest() {
+    var q = new URLSearchParams(location.search), n = q.get('next') || '';
+    if (!/^[a-z0-9_-]+\.html$/i.test(n) || n === 'login.html') return 'index.html';
+    var extra = n === 'certificado.html' && /^c=[a-f0-9]+$/i.test(q.get('q') || '') ? '?' + q.get('q') : '';
+    return n + extra;
+  }
+  if (Auth.current()) { location.replace(dest()); return; }
+  $('lNome').focus();
+  if (location.protocol === 'http:' && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) $('httpWarn').hidden = false;
+
+  function showError(r) {
+    var el = $('lErr'); el.textContent = r.error;
+    if (r.code === 'nouser') {
+      el.appendChild(document.createTextNode(' '));
+      var a = Auth.h('a', { href: DISCORD_URL, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir o Discord' });
+      a.style.color = 'var(--orange)';
+      el.appendChild(a);
+    }
+  }
+
+  $('loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = e.target.querySelector('button'); $('lErr').textContent = '';
+    var nome = $('lNome').value.trim(), senha = $('lSenha').value;
+    if (!nome || !senha) { $('lErr').textContent = 'Informe nome e senha.'; return; }
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Verificando…';
+    Auth.login(nome, senha).then(function (r) {
+      if (r.ok) { location.replace(dest()); return; }
+      showError(r); $('lSenha').value = '';
+      (r.code === 'nouser' ? $('lNome') : $('lSenha')).focus();
+      btn.disabled = false; btn.textContent = label;
+    });
+  });
+});
+</script>
+</body>
+</html>

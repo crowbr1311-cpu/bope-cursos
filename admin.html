@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Painel de Governança - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="admin"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal"><a href="index.html">Início</a><a href="index.html#cursos">Cursos</a></nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main class="wrap">
+  <nav id="tabs" class="tabs" data-active="admin" aria-label="Seções do painel administrativo"></nav>
+  <h1>PAINEL DE GOVERNANÇA</h1>
+  <p class="lead">Área exclusiva do administrador: usuários, cargos e certificados.</p>
+  <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+
+  <ul class="kpis" id="kpis"></ul>
+
+  <div class="actions toolbar" role="group" aria-label="Ações do painel">
+    <button type="button" class="btn solid" id="btnUser">+ Adicionar usuário</button>
+    <button type="button" class="btn" id="btnCargo">+ Adicionar cargo</button>
+    <button type="button" class="btn" id="btnCourse">+ Adicionar curso</button>
+    <button type="button" class="btn" id="btnCert">+ Adicionar certificado</button>
+    <button type="button" class="btn small" id="btnExport">Exportar backup</button>
+    <button type="button" class="btn small" id="btnImport">Importar backup</button>
+    <input type="file" id="fileImport" accept="application/json,.json" class="sr-only" tabindex="-1" aria-label="Arquivo de backup">
+  </div>
+
+  <section class="panel" aria-labelledby="h-users" style="padding:22px">
+    <h2 id="h-users">Usuários</h2>
+    <div class="tablewrap" tabindex="0" role="region" aria-label="Tabela de usuários">
+      <table>
+        <thead><tr><th scope="col">Nome</th><th scope="col">ID</th><th scope="col">Cargo</th><th scope="col">Instrutor ativo</th><th scope="col">Certificados</th><th scope="col">Ações</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-courses" style="padding:22px">
+    <h2 id="h-courses" tabindex="-1">Cursos</h2>
+    <div class="tablewrap" tabindex="0" role="region" aria-label="Tabela de cursos">
+      <table>
+        <thead><tr><th scope="col">Curso</th><th scope="col">Descrição</th><th scope="col">Material</th><th scope="col">Ações</th></tr></thead>
+        <tbody id="coursesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-cargos" style="padding:22px">
+    <h2 id="h-cargos">Cargos</h2>
+    <ul class="chips" id="cargosList"></ul>
+  </section>
+
+  <section class="panel" aria-labelledby="h-certs" style="padding:22px">
+    <h2 id="h-certs">Certificados emitidos</h2>
+    <div class="tablewrap" tabindex="0" role="region" aria-label="Tabela de certificados">
+      <table>
+        <thead><tr><th scope="col">Usuário</th><th scope="col">Curso</th><th scope="col">Conclusão</th><th scope="col">Instrutor</th><th scope="col">Emitido por</th><th scope="col">Ações</th></tr></thead>
+        <tbody id="certsBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<!-- Card: usuário -->
+<dialog id="userDlg" aria-labelledby="uTitle">
+  <form id="userForm" novalidate>
+    <h2 id="uTitle">Adicionar usuário</h2>
+    <div class="field"><label for="uNome">Nome</label><input type="text" id="uNome" maxlength="80" autocomplete="off"><p class="hint">O nome e a senha são usados no login. O nome precisa ser único.</p></div>
+    <div class="field"><label for="uId">ID</label><input type="text" id="uId" maxlength="20" autocomplete="off"></div>
+    <div class="field"><label for="uCargo">Cargo</label><select id="uCargo"></select></div>
+    <fieldset>
+      <legend>Instrutor ativo</legend>
+      <div class="radios">
+        <label><input type="radio" name="uInstr" id="uSim" value="sim"> Sim</label>
+        <label><input type="radio" name="uInstr" id="uNao" value="nao" checked> Não</label>
+      </div>
+    </fieldset>
+    <div class="field" id="uSenhaWrap"><label for="uSenha">Senha inicial</label><input type="password" id="uSenha" maxlength="128" autocomplete="new-password"><p class="hint">Mínimo de 8 caracteres. Repasse ao usuário com segurança.</p></div>
+    <p class="err" id="uErr" role="alert"></p>
+    <div class="actions"><button type="submit" class="btn solid">Salvar</button><button type="button" class="btn" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+
+<!-- Redefinir senha -->
+<dialog id="passDlg" aria-labelledby="pTitle">
+  <form id="passForm" novalidate>
+    <h2 id="pTitle">Redefinir senha</h2>
+    <p class="hint" id="pWho" style="margin-bottom:14px"></p>
+    <div class="field"><label for="pSenha">Nova senha</label><input type="password" id="pSenha" maxlength="128" autocomplete="new-password"><p class="hint">Mínimo de 8 caracteres.</p></div>
+    <p class="err" id="pErr" role="alert"></p>
+    <div class="actions"><button type="submit" class="btn solid">Salvar</button><button type="button" class="btn" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+
+<!-- Cargo -->
+<dialog id="cargoDlg" aria-labelledby="cTitle">
+  <form id="cargoForm" novalidate>
+    <h2 id="cTitle">Adicionar cargo</h2>
+    <div class="field"><label for="cNome">Nome do cargo</label><input type="text" id="cNome" maxlength="40" autocomplete="off"></div>
+    <p class="err" id="cErr" role="alert"></p>
+    <div class="actions"><button type="submit" class="btn solid">Salvar</button><button type="button" class="btn" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+
+<!-- Curso -->
+<dialog id="courseDlg" aria-labelledby="crTitle" style="width:min(640px,calc(100vw - 2rem))">
+  <form id="courseForm" novalidate>
+    <h2 id="crTitle">Adicionar curso</h2>
+    <div class="grid2c">
+      <div class="field"><label for="crIcone">Ícone (emoji)</label><input type="text" id="crIcone" maxlength="8" autocomplete="off"></div>
+      <div class="field"><label for="crTitulo">Título</label><input type="text" id="crTitulo" maxlength="80" autocomplete="off"></div>
+    </div>
+    <div class="field"><label for="crDesc">Descrição curta (aparece no card)</label><input type="text" id="crDesc" maxlength="200" autocomplete="off"></div>
+    <div class="field"><label for="crConteudo">Conteúdo do curso</label><textarea id="crConteudo" maxlength="8000"></textarea><p class="hint">Separe os parágrafos com uma linha em branco.</p></div>
+    <div class="field"><label for="crLink">Link do material (opcional)</label><input type="url" id="crLink" maxlength="300" placeholder="https://" autocomplete="off"><p class="hint">Vídeo, documento ou pasta compartilhada. Deve começar com http:// ou https://.</p></div>
+    <p class="err" id="crErr" role="alert"></p>
+    <div class="actions"><button type="submit" class="btn solid">Salvar</button><button type="button" class="btn" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+
+<!-- Certificado -->
+<dialog id="certDlg" aria-labelledby="eTitle">
+  <form id="certForm" novalidate>
+    <h2 id="eTitle">Adicionar certificado</h2>
+    <div class="field"><label for="eUser">Usuário</label><select id="eUser"></select></div>
+    <div class="field"><label for="eCurso">Curso</label><select id="eCurso"></select></div>
+    <div class="field"><label for="eInstr">Instrutor responsável</label><select id="eInstr"></select><p class="hint">Opcional. Aparecem apenas usuários com "Instrutor ativo" = Sim. Alimenta o ranking do Dashboard.</p></div>
+    <div class="field"><label for="eData">Data de conclusão</label><input type="date" id="eData"></div>
+    <p class="err" id="eErr" role="alert"></p>
+    <div class="actions"><button type="submit" class="btn solid">Emitir</button><button type="button" class="btn" data-close>Cancelar</button></div>
+  </form>
+</dialog>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var $ = function (id) { return document.getElementById(id); }, h = Auth.h;
+  var editing = null, passFor = null;
+
+  function announce(m) { var l = $('live'); l.textContent = ''; setTimeout(function () { l.textContent = m; }, 50); }
+  function opts(sel, list, valueFn, textFn) {
+    sel.textContent = '';
+    list.forEach(function (x) { sel.appendChild(h('option', { value: valueFn(x), text: textFn(x) })); });
+  }
+  function closeDlg(d) { if (d.open) d.close(); }
+  document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { closeDlg(b.closest('dialog')); }); });
+
+  /* ----- renderização ----- */
+  function render() {
+    var us = Auth.listUsers(), cs = Auth.listCerts(), cg = Auth.cargos();
+    var kp = $('kpis'); kp.textContent = '';
+    [[us.length, 'Usuários'], [us.filter(function (u) { return u.instrutor; }).length, 'Instrutores ativos'], [Auth.listCourses().length, 'Cursos'], [cs.length, 'Certificados emitidos'], [cg.length + 1, 'Cargos']].forEach(function (k) {
+      kp.appendChild(h('li', null, h('div', { 'class': 'v', text: String(k[0]) }), h('div', { 'class': 'l', text: k[1] })));
+    });
+
+    var tb = $('usersBody'); tb.textContent = '';
+    us.forEach(function (u) {
+      var n = cs.filter(function (c) { return c.userId.toLowerCase() === u.id.toLowerCase(); }).length;
+      var acts = h('div', { 'class': 'actions' });
+      var be = h('button', { type: 'button', 'class': 'btn small', 'aria-label': 'Editar ' + u.nome, text: 'Editar' });
+      be.addEventListener('click', function () { openUser(u); });
+      var bp = h('button', { type: 'button', 'class': 'btn small', 'aria-label': 'Redefinir senha de ' + u.nome, text: 'Senha' });
+      bp.addEventListener('click', function () { openPass(u); });
+      acts.appendChild(be); acts.appendChild(bp);
+      if (u.role !== 'admin') {
+        var bd = h('button', { type: 'button', 'class': 'btn small danger', 'aria-label': 'Excluir ' + u.nome, text: 'Excluir' });
+        bd.addEventListener('click', function () {
+          if (!confirm('Excluir ' + u.nome + ' (' + u.id + ') e seus certificados?')) return;
+          Auth.deleteUser(u.id).then(function (r) { if (!r.ok) alert(r.error); else { announce('Usuário excluído.'); render(); } });
+        });
+        acts.appendChild(bd);
+      }
+      tb.appendChild(h('tr', null,
+        h('th', { scope: 'row', text: u.nome }),
+        h('td', { text: u.id }),
+        h('td', { text: u.cargo }),
+        h('td', { 'class': u.instrutor ? 'yes' : 'no', text: u.instrutor ? '✔ Sim' : '✖ Não' }),
+        h('td', { text: String(n) }),
+        h('td', null, acts)));
+    });
+
+    var cb = $('coursesBody'); cb.textContent = '';
+    var crs = Auth.listCourses();
+    if (!crs.length) cb.appendChild(h('tr', null, h('td', { colspan: '4', 'class': 'empty', text: 'Nenhum curso cadastrado. Use "Adicionar curso".' })));
+    crs.forEach(function (c) {
+      var be = h('button', { type: 'button', 'class': 'btn small', 'aria-label': 'Editar curso ' + c.titulo, text: 'Editar' });
+      be.addEventListener('click', function () { openCourse(c); });
+      var bv = h('a', { 'class': 'btn small', href: 'curso.html?c=' + encodeURIComponent(c.id), 'aria-label': 'Ver curso ' + c.titulo, text: 'Ver' });
+      var bd = h('button', { type: 'button', 'class': 'btn small danger', 'aria-label': 'Excluir curso ' + c.titulo, text: 'Excluir' });
+      bd.addEventListener('click', function () {
+        if (!confirm('Excluir o curso "' + c.titulo + '"? Os certificados já emitidos continuam válidos.')) return;
+        Auth.removeCourse(c.id).then(function (r) { if (!r.ok) alert(r.error); else { announce('Curso excluído.'); render(); } });
+      });
+      cb.appendChild(h('tr', null,
+        h('th', { scope: 'row', text: c.icone + ' ' + c.titulo }),
+        h('td', { 'class': 'cell-desc', text: c.descricao || '—' }),
+        h('td', { 'class': c.link ? 'yes' : 'no', text: c.link ? '✔ Com link' : '✖ Sem link' }),
+        h('td', null, h('div', { 'class': 'actions' }, be, bv, bd))));
+    });
+
+    var cl = $('cargosList'); cl.textContent = '';
+    cl.appendChild(h('li', { text: 'CEO (fixo)' }));
+    cg.forEach(function (c) {
+      var rm = h('button', { type: 'button', 'aria-label': 'Remover cargo ' + c, text: '✕' });
+      rm.addEventListener('click', function () {
+        if (!confirm('Remover o cargo "' + c + '"?')) return;
+        Auth.removeCargo(c).then(function (r) { if (!r.ok) alert(r.error); else { announce('Cargo removido.'); render(); } });
+      });
+      cl.appendChild(h('li', null, c, rm));
+    });
+
+    var ct = $('certsBody'); ct.textContent = '';
+    if (!cs.length) ct.appendChild(h('tr', null, h('td', { colspan: '6', 'class': 'empty', text: 'Nenhum certificado emitido ainda.' })));
+    cs.forEach(function (c) {
+      var u = us.filter(function (x) { return x.id.toLowerCase() === c.userId.toLowerCase(); })[0];
+      var rm = h('button', { type: 'button', 'class': 'btn small danger', 'aria-label': 'Remover certificado de ' + c.curso, text: 'Remover' });
+      rm.addEventListener('click', function () {
+        if (!confirm('Remover este certificado?')) return;
+        Auth.removeCert(c.id).then(function (r) { if (!r.ok) alert(r.error); else { announce('Certificado removido.'); render(); } });
+      });
+      ct.appendChild(h('tr', null,
+        h('th', { scope: 'row', text: (u ? u.nome : c.userId) + ' (' + c.userId + ')' }),
+        h('td', { text: c.curso }),
+        h('td', { text: Auth.fmtDate(c.data) }),
+        h('td', { text: c.instrutorNome || '—' }),
+        h('td', { text: c.emitidoPor || '—' }),
+        h('td', null, h('div', { 'class': 'actions' }, h('a', { 'class': 'btn small', href: 'certificado.html?c=' + encodeURIComponent(c.id), text: 'Ver' }), rm))));
+    });
+  }
+
+  /* ----- usuário ----- */
+  function openUser(u) {
+    editing = u || null;
+    $('uTitle').textContent = u ? 'Editar usuário' : 'Adicionar usuário';
+    $('uNome').value = u ? u.nome : ''; $('uNome').readOnly = !!(u && u.role === 'admin');
+    $('uId').value = u ? u.id : ''; $('uId').readOnly = !!u;
+    var sel = $('uCargo');
+    if (u && u.role === 'admin') { opts(sel, ['CEO'], function (x) { return x; }, function (x) { return x; }); sel.disabled = true; }
+    else { opts(sel, Auth.cargos(), function (x) { return x; }, function (x) { return x; }); sel.disabled = false; if (u) sel.value = u.cargo; }
+    $('uSim').checked = !!(u && u.instrutor); $('uNao').checked = !(u && u.instrutor);
+    $('uSenhaWrap').hidden = !!u; $('uSenha').value = ''; $('uErr').textContent = '';
+    $('userDlg').showModal(); $('uNome').focus();
+  }
+  $('btnUser').addEventListener('click', function () {
+    if (!Auth.cargos().length) { alert('Cadastre ao menos um cargo antes de adicionar usuários.'); return; }
+    openUser(null);
+  });
+  $('userForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = { nome: $('uNome').value, id: $('uId').value.trim(), cargo: $('uCargo').value, instrutor: $('uSim').checked, senha: $('uSenha').value };
+    var p = editing ? Auth.updateUser(editing.id, d) : Auth.addUser(d);
+    p.then(function (r) {
+      if (!r.ok) { $('uErr').textContent = r.error; return; }
+      closeDlg($('userDlg')); announce(editing ? 'Usuário atualizado.' : 'Usuário adicionado.'); render();
+    });
+  });
+
+  /* ----- senha ----- */
+  function openPass(u) {
+    passFor = u; $('pWho').textContent = u.nome + ' (' + u.id + ')'; $('pSenha').value = ''; $('pErr').textContent = '';
+    $('passDlg').showModal(); $('pSenha').focus();
+  }
+  $('passForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    Auth.resetPassword(passFor.id, $('pSenha').value).then(function (r) {
+      if (!r.ok) { $('pErr').textContent = r.error; return; }
+      closeDlg($('passDlg')); announce('Senha redefinida.');
+    });
+  });
+
+  /* ----- cargo ----- */
+  $('btnCargo').addEventListener('click', function () { $('cNome').value = ''; $('cErr').textContent = ''; $('cargoDlg').showModal(); $('cNome').focus(); });
+  $('cargoForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    Auth.addCargo($('cNome').value).then(function (r) {
+      if (!r.ok) { $('cErr').textContent = r.error; return; }
+      closeDlg($('cargoDlg')); announce('Cargo adicionado.'); render();
+    });
+  });
+
+  /* ----- certificado ----- */
+  $('btnCert').addEventListener('click', function () {
+    var us = Auth.listUsers();
+    opts($('eUser'), us, function (u) { return u.id; }, function (u) { return u.nome + ' (' + u.id + ')'; });
+    if (!Auth.listCourses().length) { alert('Cadastre ao menos um curso antes de emitir certificados.'); return; }
+    opts($('eCurso'), Auth.listCourses(), function (c) { return c.id; }, function (c) { return c.titulo; });
+    opts($('eInstr'), [{ id: '', nome: '— Nenhum —' }].concat(us.filter(function (u) { return u.instrutor; })), function (u) { return u.id; }, function (u) { return u.id ? u.nome + ' (' + u.id + ')' : u.nome; });
+    $('eData').value = Auth.today(); $('eErr').textContent = '';
+    $('certDlg').showModal(); $('eUser').focus();
+  });
+  $('certForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    Auth.addCert({ userId: $('eUser').value, cursoId: $('eCurso').value, instrutorId: $('eInstr').value, data: $('eData').value }).then(function (r) {
+      if (!r.ok) { $('eErr').textContent = r.error; return; }
+      closeDlg($('certDlg')); announce('Certificado emitido.'); render();
+    });
+  });
+
+  /* ----- cursos ----- */
+  var editingCourse = null;
+  function openCourse(c) {
+    editingCourse = c || null;
+    $('crTitle').textContent = c ? 'Editar curso' : 'Adicionar curso';
+    $('crIcone').value = c ? c.icone : '📘';
+    $('crTitulo').value = c ? c.titulo : '';
+    $('crDesc').value = c ? c.descricao : '';
+    $('crConteudo').value = c ? c.conteudo : '';
+    $('crLink').value = c ? c.link : '';
+    $('crErr').textContent = '';
+    $('courseDlg').showModal(); $('crTitulo').focus();
+  }
+  $('btnCourse').addEventListener('click', function () { openCourse(null); });
+  $('courseForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = { icone: $('crIcone').value, titulo: $('crTitulo').value, descricao: $('crDesc').value, conteudo: $('crConteudo').value, link: $('crLink').value };
+    var p = editingCourse ? Auth.updateCourse(editingCourse.id, d) : Auth.addCourse(d);
+    p.then(function (r) {
+      if (!r.ok) { $('crErr').textContent = r.error; return; }
+      closeDlg($('courseDlg')); announce(editingCourse ? 'Curso atualizado.' : 'Curso adicionado.'); render();
+    });
+  });
+
+  /* ----- backup ----- */
+  $('btnExport').addEventListener('click', function () {
+    Auth.exportBackup().then(function (txt) {
+      if (!txt) { alert('Não foi possível gerar o backup.'); return; }
+      var a = h('a', { href: URL.createObjectURL(new Blob([txt], { type: 'application/json' })), download: 'bope-backup.json' });
+      document.body.appendChild(a); a.click(); a.remove();
+      alert('Atenção: o backup contém os hashes de senha. Guarde o arquivo em local seguro.');
+    });
+  });
+  $('btnImport').addEventListener('click', function () { $('fileImport').click(); });
+  $('fileImport').addEventListener('change', function (e) {
+    var f = e.target.files[0]; if (!f) return;
+    if (!confirm('Importar substitui TODOS os usuários, cargos e certificados atuais. Continuar?')) { e.target.value = ''; return; }
+    var r = new FileReader();
+    r.onload = function () {
+      Auth.importBackup(r.result).then(function (res) {
+        e.target.value = '';
+        if (!res.ok) { alert(res.error); return; }
+        if (!Auth.current()) { Auth.logout(); return; }
+        announce('Backup importado.'); render();
+      });
+    };
+    r.readAsText(f);
+  });
+
+  render();
+
+  /* atalho dos botões "Editar" da página inicial e da página do curso: admin.html?editar=<id> */
+  var alvo = new URLSearchParams(location.search).get('editar');
+  if (alvo) {
+    var cur = Auth.getCourse(alvo);
+    if (cur) openCourse(cur); else alert('Curso não encontrado.');
+  }
+});
+</script>
+</body>
+</html>

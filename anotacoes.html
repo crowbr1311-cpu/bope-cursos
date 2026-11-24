@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Anotações - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="admin"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal"><a href="index.html">Início</a><a href="index.html#cursos">Cursos</a></nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main class="wrap">
+  <nav id="tabs" class="tabs" data-active="anotacoes" aria-label="Seções do painel administrativo"></nav>
+  <h1>ANOTAÇÕES</h1>
+  <p class="lead">Registre observações e relatos. Somente o administrador vê esta página.</p>
+  <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+
+  <form class="formcard" id="form" novalidate>
+    <h2 id="formTitle">Nova anotação</h2>
+    <div class="field"><label for="nome">Nome</label><input type="text" id="nome" maxlength="80" autocomplete="off"></div>
+    <div class="field"><label for="texto">Observações/relatos</label><textarea id="texto" maxlength="4000"></textarea></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="actions">
+      <button type="submit" class="btn solid" id="btnSave">Salvar anotação</button>
+      <button type="button" class="btn" id="btnCancel" hidden>Cancelar edição</button>
+    </div>
+  </form>
+
+  <div class="searchbar"><label for="busca">Buscar</label><input type="text" id="busca" placeholder="Nome ou texto da anotação" autocomplete="off"></div>
+  <div class="records" id="list"></div>
+</main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var $ = function (id) { return document.getElementById(id); }, h = Auth.h;
+  var editing = null;
+
+  function announce(m) { var l = $('live'); l.textContent = ''; setTimeout(function () { l.textContent = m; }, 50); }
+
+  function resetForm() {
+    editing = null; $('nome').value = ''; $('texto').value = ''; $('err').textContent = '';
+    $('formTitle').textContent = 'Nova anotação'; $('btnSave').textContent = 'Salvar anotação'; $('btnCancel').hidden = true;
+  }
+  function startEdit(n) {
+    editing = n; $('nome').value = n.nome; $('texto').value = n.texto; $('err').textContent = '';
+    $('formTitle').textContent = 'Editar anotação'; $('btnSave').textContent = 'Salvar alterações'; $('btnCancel').hidden = false;
+    $('nome').focus(); $('form').scrollIntoView({ block: 'center' });
+  }
+
+  function render() {
+    var q = $('busca').value.trim().toLowerCase(), box = $('list'); box.textContent = '';
+    var all = Auth.listNotes();
+    var items = all.filter(function (n) { return !q || (n.nome + ' ' + n.texto).toLowerCase().indexOf(q) >= 0; });
+    if (!items.length) { box.appendChild(h('p', { 'class': 'empty', text: all.length ? 'Nenhuma anotação encontrada.' : 'Nenhuma anotação registrada ainda.' })); return; }
+    items.forEach(function (n) {
+      var meta = 'Registrada em ' + Auth.fmtDateTime(n.criadoEm) + (n.registradoPor ? ' por ' + n.registradoPor : '') +
+                 (n.editadoEm ? ' · editada em ' + Auth.fmtDateTime(n.editadoEm) : '');
+      var be = h('button', { type: 'button', 'class': 'btn small', 'aria-label': 'Editar anotação ' + n.nome, text: 'Editar' });
+      be.addEventListener('click', function () { startEdit(n); });
+      var bd = h('button', { type: 'button', 'class': 'btn small danger', 'aria-label': 'Excluir anotação ' + n.nome, text: 'Excluir' });
+      bd.addEventListener('click', function () {
+        if (!confirm('Excluir a anotação "' + n.nome + '"?')) return;
+        Auth.removeNote(n.id).then(function (r) {
+          if (!r.ok) { alert(r.error); return; }
+          if (editing && editing.id === n.id) resetForm();
+          announce('Anotação excluída.'); render();
+        });
+      });
+      box.appendChild(h('article', { 'class': 'record' },
+        h('h3', { text: n.nome }),
+        h('p', { 'class': 'meta', text: meta }),
+        h('div', { 'class': 'body', text: n.texto }),
+        h('div', { 'class': 'actions' }, be, bd)));
+    });
+  }
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = { nome: $('nome').value, texto: $('texto').value };
+    var p = editing ? Auth.updateNote(editing.id, d) : Auth.addNote(d);
+    p.then(function (r) {
+      if (!r.ok) { $('err').textContent = r.error; return; }
+      announce(editing ? 'Anotação atualizada.' : 'Anotação salva.'); resetForm(); render();
+    });
+  });
+  $('btnCancel').addEventListener('click', function () { resetForm(); $('nome').focus(); });
+  $('busca').addEventListener('input', render);
+  render();
+});
+</script>
+</body>
+</html>

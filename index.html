@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>B.O.P.E - Cursos</title>
+<meta name="description" content="Unidade B.O.P.E - Sistema de Treinamento Tático Avançado">
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="user"></script>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal">
+    <a href="index.html">Início</a>
+    <a href="#cursos">Cursos</a>
+    <a href="#certificados">Certificados</a>
+    <a href="#contato">Contato</a>
+  </nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main>
+  <div class="hero" id="inicio">
+    <h1>UNIDADE B.O.P.E</h1>
+    <p>Sistema de Treinamento Tático Avançado</p>
+    <div class="pct">100%</div>
+    <a class="btn" href="#cursos">⚡ INICIAR OPERAÇÃO ⚡</a>
+  </div>
+
+  <section id="cursos">
+    <h2>⚔️ ARSENAL DE OPERAÇÕES ⚔️</h2>
+    <div class="grid" id="courses"></div>
+  </section>
+
+  <section id="certificados">
+    <h2>🏅 MEUS CERTIFICADOS 🏅</h2>
+    <div class="grid" id="myCerts"></div>
+  </section>
+
+  <section id="contato">
+    <h2>📡 CENTRAL DE COMANDO 📡</h2>
+    <p>Dúvidas ou solicitações? Fale com a central.</p>
+    <a class="btn" href="#">⚡ ENVIAR TRANSMISSÃO ⚡</a>
+  </section>
+</main>
+
+<footer>
+  Todos os direitos reservados a B.O.P.E ©copyright 2026
+  <div class="sec">█ █ █ NÍVEL DE SEGURANÇA: MÁXIMO █ █ █</div>
+</footer>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var h = Auth.h;
+
+  var cbox = document.getElementById('courses'), courses = Auth.listCourses();
+  if (!courses.length) cbox.appendChild(h('p', { 'class': 'empty-msg', text: 'Nenhum curso disponível no momento.' }));
+  courses.forEach(function (c) {
+    var acts = h('div', { 'class': 'actions center-actions' },
+      h('a', { 'class': 'btn', href: 'curso.html?c=' + encodeURIComponent(c.id), 'aria-label': 'Iniciar ' + c.titulo, text: '▶ Iniciar' }));
+    /* somente o administrador vê o botão de edição */
+    if (Auth.user.role === 'admin') acts.appendChild(h('a', { 'class': 'btn small', href: 'admin.html?editar=' + encodeURIComponent(c.id), 'aria-label': 'Editar ' + c.titulo, text: '✏️ Editar' }));
+    cbox.appendChild(h('article', { 'class': 'card' },
+      h('div', { 'class': 'ico', 'aria-hidden': 'true', text: c.icone }),
+      h('h3', { text: c.titulo }),
+      h('p', { text: c.descricao }),
+      acts));
+  });
+
+  var box = document.getElementById('myCerts'), list = Auth.myCerts();
+  if (!list.length) { box.appendChild(h('p', { 'class': 'empty-msg', text: 'Você ainda não possui certificados.' })); return; }
+  list.forEach(function (c) {
+    box.appendChild(h('article', { 'class': 'card' },
+      h('div', { 'class': 'ico', 'aria-hidden': 'true', text: '🏅' }),
+      h('h3', { text: c.curso }),
+      h('p', { text: 'Concluído em ' + Auth.fmtDate(c.data) }),
+      h('a', { 'class': 'btn', href: 'certificado.html?c=' + encodeURIComponent(c.id), text: 'Ver certificado' })));
+  });
+});
+</script>
+</body>
+</html>

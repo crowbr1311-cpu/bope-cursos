@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Punições - B.O.P.E</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="auth.js" data-guard="admin"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">B.O.P.E <span>Cursos</span></a>
+  <nav aria-label="Principal"><a href="index.html">Início</a><a href="index.html#cursos">Cursos</a></nav>
+  <div class="userbar" id="userbar"></div>
+</header>
+
+<main class="wrap">
+  <nav id="tabs" class="tabs" data-active="punicoes" aria-label="Seções do painel administrativo"></nav>
+  <h1>PUNIÇÕES</h1>
+  <p class="lead">Registro de punições aplicadas. Somente o administrador vê esta página.</p>
+  <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+
+  <form class="formcard" id="form" novalidate>
+    <h2 id="formTitle">Nova punição</h2>
+    <div class="field"><label for="autor">Autor da punição</label><input type="text" id="autor" maxlength="80" autocomplete="off"></div>
+    <div class="field"><label for="punido">Militar punido</label><input type="text" id="punido" maxlength="80" autocomplete="off"></div>
+    <div class="field"><label for="motivo">Motivo</label><textarea id="motivo" maxlength="2000"></textarea></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="actions">
+      <button type="submit" class="btn solid" id="btnSave">Registrar punição</button>
+      <button type="button" class="btn" id="btnCancel" hidden>Cancelar edição</button>
+    </div>
+  </form>
+
+  <div class="searchbar"><label for="busca">Buscar</label><input type="text" id="busca" placeholder="Militar, autor ou motivo" autocomplete="off"></div>
+  <div class="records" id="list"></div>
+</main>
+
+<footer>Todos os direitos reservados a B.O.P.E ©copyright 2026</footer>
+
+<script>
+Auth.ready.then(function () {
+  if (!Auth.user) return;
+  var $ = function (id) { return document.getElementById(id); }, h = Auth.h;
+  var editing = null;
+
+  function announce(m) { var l = $('live'); l.textContent = ''; setTimeout(function () { l.textContent = m; }, 50); }
+
+  function resetForm() {
+    editing = null; $('autor').value = Auth.user.nome; $('punido').value = ''; $('motivo').value = ''; $('err').textContent = '';
+    $('formTitle').textContent = 'Nova punição'; $('btnSave').textContent = 'Registrar punição'; $('btnCancel').hidden = true;
+  }
+  function startEdit(p) {
+    editing = p; $('autor').value = p.autor; $('punido').value = p.punido; $('motivo').value = p.motivo; $('err').textContent = '';
+    $('formTitle').textContent = 'Editar punição'; $('btnSave').textContent = 'Salvar alterações'; $('btnCancel').hidden = false;
+    $('punido').focus(); $('form').scrollIntoView({ block: 'center' });
+  }
+
+  function render() {
+    var q = $('busca').value.trim().toLowerCase(), box = $('list'); box.textContent = '';
+    var all = Auth.listPunicoes();
+    var items = all.filter(function (p) { return !q || (p.punido + ' ' + p.autor + ' ' + p.motivo).toLowerCase().indexOf(q) >= 0; });
+    if (!items.length) { box.appendChild(h('p', { 'class': 'empty', text: all.length ? 'Nenhuma punição encontrada.' : 'Nenhuma punição registrada ainda.' })); return; }
+    items.forEach(function (p) {
+      var meta = 'Autor da punição: ' + p.autor + ' · Registrada em ' + Auth.fmtDateTime(p.criadoEm) + (p.registradoPor ? ' por ' + p.registradoPor : '') +
+                 (p.editadoEm ? ' · editada em ' + Auth.fmtDateTime(p.editadoEm) : '');
+      var be = h('button', { type: 'button', 'class': 'btn small', 'aria-label': 'Editar punição de ' + p.punido, text: 'Editar' });
+      be.addEventListener('click', function () { startEdit(p); });
+      var bd = h('button', { type: 'button', 'class': 'btn small danger', 'aria-label': 'Excluir punição de ' + p.punido, text: 'Excluir' });
+      bd.addEventListener('click', function () {
+        if (!confirm('Excluir a punição de "' + p.punido + '"? Esta ação não pode ser desfeita.')) return;
+        Auth.removePunicao(p.id).then(function (r) {
+          if (!r.ok) { alert(r.error); return; }
+          if (editing && editing.id === p.id) resetForm();
+          announce('Punição excluída.'); render();
+        });
+      });
+      box.appendChild(h('article', { 'class': 'record' },
+        h('h3', { text: p.punido }),
+        h('p', { 'class': 'meta', text: meta }),
+        h('div', { 'class': 'lbl', text: 'Motivo' }),
+        h('div', { 'class': 'body', text: p.motivo }),
+        h('div', { 'class': 'actions' }, be, bd)));
+    });
+  }
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = { autor: $('autor').value, punido: $('punido').value, motivo: $('motivo').value };
+    var pr = editing ? Auth.updatePunicao(editing.id, d) : Auth.addPunicao(d);
+    pr.then(function (r) {
+      if (!r.ok) { $('err').textContent = r.error; return; }
+      announce(editing ? 'Punição atualizada.' : 'Punição registrada.'); resetForm(); render();
+    });
+  });
+  $('btnCancel').addEventListener('click', function () { resetForm(); $('punido').focus(); });
+  $('busca').addEventListener('input', render);
+  resetForm();
+  render();
+});
+</script>
+</body>
+</html>
